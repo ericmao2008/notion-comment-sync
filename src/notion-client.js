@@ -6,9 +6,9 @@ import { log } from './utils.js';
  */
 export class NotionClient {
   constructor() {
-    const token = process.env.NOTION_TOKEN;
+    const token = process.env.NOTION_TOKEN || process.env.NOTION_API_TOKEN;
     if (!token) {
-      throw new Error('NOTION_TOKEN environment variable is required');
+      throw new Error('NOTION_TOKEN or NOTION_API_TOKEN environment variable is required');
     }
 
     this.client = new Client({ auth: token });
