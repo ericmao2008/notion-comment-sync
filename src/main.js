@@ -3,6 +3,7 @@ import { NotionClient } from './notion-client.js';
 import { CommentFetcher } from './comment-fetcher.js';
 import { ContentProcessor } from './content-processor.js';
 import { DatabaseWriter } from './database-writer.js';
+import { WorkflowManager } from './workflow-manager.js';
 
 /**
  * Notion 评论同步主程序
@@ -13,6 +14,7 @@ export class NotionCommentSync {
     this.commentFetcher = new CommentFetcher(this.notionClient);
     this.contentProcessor = new ContentProcessor(this.notionClient);
     this.databaseWriter = new DatabaseWriter(this.notionClient);
+    this.workflowManager = new WorkflowManager(this.notionClient);
   }
 
   /**
@@ -94,7 +96,7 @@ export class NotionCommentSync {
       log('info', '⚙️ Step 5: Processing discussion content...');
       log('info', `Processing ${newDiscussions.length} discussions`);
       
-      const processedDiscussions = this.contentProcessor.processMultipleDiscussions(newDiscussions);
+      const processedDiscussions = await this.contentProcessor.processMultipleDiscussions(newDiscussions);
       
       log('info', '💾 Step 6: Writing discussions to database...');
       const writeResults = await this.databaseWriter.writeMultipleDiscussions(processedDiscussions);
@@ -103,7 +105,11 @@ export class NotionCommentSync {
       log('info', '🔄 Step 7: Updating automation status in reference database...');
       await this.updateProcessedNotesStatus(pendingNotes, writeResults.results);
       
-      // 步骤8: 获取更新后的数据库统计信息
+      // 步骤8: 执行卡片处理工作流
+      log('info', '📋 Step 8: Executing card processing workflow...');
+      const workflowResult = await this.workflowManager.executeCardProcessingWorkflow();
+      
+      // 步骤9: 获取更新后的数据库统计信息
       const afterStats = await this.notionClient.getDatabaseStats();
       
       const duration = Date.now() - startTime;
@@ -115,7 +121,8 @@ export class NotionCommentSync {
         errors: writeResults.errorCount,
         duration,
         beforeStats,
-        afterStats
+        afterStats,
+        workflowResult
       });
       
       return {
@@ -126,7 +133,8 @@ export class NotionCommentSync {
         duration,
         beforeStats,
         afterStats,
-        writeResults: writeResults.results
+        writeResults: writeResults.results,
+        workflowResult
       };
       
     } catch (error) {
@@ -150,16 +158,27 @@ export class NotionCommentSync {
     try {
       log('info', 'Starting to update automation status for processed notes');
       
+      // 统计每个源笔记的成功写入数量
+      const sourceNoteSuccessCount = {};
+      
+      writeResults.forEach(result => {
+        if (result.success && result.sourceNoteId) {
+          // 使用 sourceNoteId 来统计
+          sourceNoteSuccessCount[result.sourceNoteId] = (sourceNoteSuccessCount[result.sourceNoteId] || 0) + 1;
+        }
+      });
+      
+      log('info', `Source note success count:`, sourceNoteSuccessCount);
+      
       for (const note of pendingNotes) {
         const noteId = note.id;
         
         // 检查该笔记是否有成功写入的讨论
-        const hasSuccessfulDiscussions = writeResults.some(result => 
-          result.success && result.sourceNoteId === noteId
-        );
+        const successCount = sourceNoteSuccessCount[noteId] || 0;
         
-        if (hasSuccessfulDiscussions) {
+        if (successCount > 0) {
           // 如果有成功写入的讨论，更新状态为"已执行"
+          log('info', `Note ${noteId} has ${successCount} successful discussions, updating to '已执行'`);
           await this.notionClient.updateAutomationStatus(noteId, '已执行');
         } else {
           // 如果没有成功写入的讨论，保持状态为"未执行"

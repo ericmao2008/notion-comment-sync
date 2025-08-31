@@ -12,11 +12,15 @@ export class ContentProcessor {
   /**
    * 处理单个讨论线程
    * @param {Object} discussion - 讨论对象
-   * @returns {Object} 处理后的页面数据
+   * @returns {Promise<Object>} 处理后的页面数据
    */
-  processDiscussion(discussion) {
+  async processDiscussion(discussion) {
     try {
-      const properties = this.generatePageProperties(discussion);
+      // 处理Summary关联
+      const summaryPageId = await this.processSummaryRelation(discussion, this.notionClient);
+      
+      // 生成包含Summary关联的属性
+      const properties = this.generatePagePropertiesWithSummary(discussion, summaryPageId);
       const content = this.generatePageContent(discussion);
       
       return {
@@ -24,7 +28,9 @@ export class ContentProcessor {
           database_id: this.notionClient.targetDatabaseId
         },
         properties,
-        children: content
+        children: content,
+        // 保留源笔记信息，供后续使用
+        sourceNoteId: discussion.sourceNote?.id
       };
     } catch (error) {
       log('error', `Failed to process discussion: ${discussion.discussionId}`, error);
@@ -75,7 +81,30 @@ export class ContentProcessor {
   }
 
   /**
-   * 生成页面内容块 - 实现新格式要求（简化版）
+   * 生成页面属性（包含Summary关联）
+   * @param {Object} discussion - 讨论对象
+   * @param {string} summaryPageId - Summary页面ID
+   * @returns {Object} 页面属性
+   */
+  generatePagePropertiesWithSummary(discussion, summaryPageId) {
+    const properties = this.generatePageProperties(discussion);
+    
+    // 添加Summary关联属性
+    if (summaryPageId) {
+      properties.Summary = {
+        relation: [
+          {
+            id: summaryPageId
+          }
+        ]
+      };
+    }
+    
+    return properties;
+  }
+
+  /**
+   * 生成页面内容块 - 实现新格式要求（图2格式）
    * @param {Object} discussion - 讨论对象
    * @returns {Array} 内容块数组
    */
@@ -101,10 +130,12 @@ export class ContentProcessor {
     // 按类型分组评论
     const groupedComments = this.groupCommentsByType(discussion.comments);
     
-    // 添加 Q: 类型的评论
+    // 添加 Q: 类型的评论（简化格式，只显示内容）
     if (groupedComments.Q && groupedComments.Q.length > 0) {
       groupedComments.Q.forEach(comment => {
-        const content = this.extractCommentText(comment).replace(/^Q:?\s*/, '');
+        // 直接使用原始评论文本，去掉前缀
+        const commentText = comment.rich_text?.[0]?.plain_text || '';
+        const content = commentText.replace(/^Q:?\s*/, '');
         children.push({
           object: 'block',
           type: 'paragraph',
@@ -122,10 +153,12 @@ export class ContentProcessor {
       });
     }
     
-    // 添加 A: 类型的评论
+    // 添加 A: 类型的评论（简化格式，只显示内容）
     if (groupedComments.A && groupedComments.A.length > 0) {
       groupedComments.A.forEach(comment => {
-        const content = this.extractCommentText(comment).replace(/^A:?\s*/, '');
+        // 直接使用原始评论文本，去掉前缀
+        const commentText = comment.rich_text?.[0]?.plain_text || '';
+        const content = commentText.replace(/^A:?\s*/, '');
         children.push({
           object: 'block',
           type: 'paragraph',
@@ -165,10 +198,12 @@ export class ContentProcessor {
       });
     }
     
-    // 添加 → 类型的评论
+    // 添加 → 类型的评论（简化格式，只显示内容）
     if (groupedComments.arrow && groupedComments.arrow.length > 0) {
       groupedComments.arrow.forEach(comment => {
-        const content = this.extractCommentText(comment).replace(/^→:?\s*/, '');
+        // 直接使用原始评论文本，去掉前缀
+        const commentText = comment.rich_text?.[0]?.plain_text || '';
+        const content = commentText.replace(/^→:?\s*/, '');
         children.push({
           object: 'block',
           type: 'paragraph',
@@ -186,7 +221,7 @@ export class ContentProcessor {
       });
     }
     
-    // 添加其他类型的评论
+    // 添加其他类型的评论（保持原有格式，包含用户ID和时间）
     if (groupedComments.other && groupedComments.other.length > 0) {
       groupedComments.other.forEach(comment => {
         const author = this.getCommentAuthor(comment);
@@ -227,15 +262,24 @@ export class ContentProcessor {
     };
 
     comments.forEach(comment => {
-      const commentText = this.extractCommentText(comment);
+      // 直接使用原始的评论文本，而不是处理后的文本
+      const commentText = comment.rich_text?.[0]?.plain_text || '';
       
-      if (commentText.trim().match(/^Q:?\s/)) {
+      // 调试输出
+      console.log(`Debug: Comment text: "${commentText}"`);
+      
+      // 修复正则表达式匹配 - 去掉空格要求
+      if (commentText.trim().match(/^Q:?/)) {
+        console.log(`Debug: Matched as Q comment`);
         grouped.Q.push(comment);
-      } else if (commentText.trim().match(/^A:?\s/)) {
+      } else if (commentText.trim().match(/^A:?/)) {
+        console.log(`Debug: Matched as A comment`);
         grouped.A.push(comment);
-      } else if (commentText.trim().match(/^→:?\s/)) {
+      } else if (commentText.trim().match(/^→:?/)) {
+        console.log(`Debug: Matched as arrow comment`);
         grouped.arrow.push(comment);
       } else {
+        console.log(`Debug: Matched as other comment`);
         grouped.other.push(comment);
       }
     });
@@ -277,18 +321,190 @@ export class ContentProcessor {
   /**
    * 批量处理多个讨论线程
    * @param {Array} discussions - 讨论线程数组
-   * @returns {Array} 处理后的页面数据数组
+   * @returns {Promise<Array>} 处理后的页面数据数组
    */
-  processMultipleDiscussions(discussions) {
+  async processMultipleDiscussions(discussions) {
     log('info', `Processing ${discussions.length} discussions`);
     
-    return discussions.map(discussion => {
+    const results = [];
+    
+    for (const discussion of discussions) {
       try {
-        return this.processDiscussion(discussion);
+        const result = await this.processDiscussion(discussion);
+        results.push(result);
       } catch (error) {
         log('error', `Failed to process discussion: ${discussion.discussionId}`, error);
-        return null;
+        // 继续处理下一个讨论，不中断整个流程
       }
-    }).filter(Boolean); // 过滤掉处理失败的讨论
+    }
+    
+    return results.filter(Boolean); // 过滤掉处理失败的讨论
+  }
+
+  /**
+   * 处理Summary页面关联
+   * @param {Object} discussion - 讨论对象
+   * @param {Object} notionClient - Notion客户端实例
+   * @returns {Promise<string>} Summary页面ID
+   */
+  async processSummaryRelation(discussion, notionClient) {
+    try {
+      const summaryDatabaseId = '1c3e666e-cf2c-805b-af13-e89cc235801f';
+      
+      // 查找名为"Summary"的页面（所有卡片都链接到同一个Summary文件）
+      console.log(`🔍 查找Summary文件...`);
+      
+      const summaryPage = await this.findSummaryFile(notionClient, summaryDatabaseId);
+      
+      if (summaryPage) {
+        console.log(`✅ 找到Summary文件: ${summaryPage.id}`);
+        return summaryPage.id;
+      }
+      
+      // 如果没有找到，创建名为"Summary"的文件
+      console.log(`📝 创建Summary文件...`);
+      
+      const newSummaryPageId = await this.createSummaryFile(notionClient, summaryDatabaseId);
+      
+      if (newSummaryPageId) {
+        console.log(`✅ 创建Summary文件成功: ${newSummaryPageId}`);
+        return newSummaryPageId;
+      }
+      
+      return null;
+      
+    } catch (error) {
+      console.error('❌ 处理Summary关联失败:', error.message);
+      return null;
+    }
+  }
+
+  /**
+   * 查找名为"Summary"的文件
+   * @param {Object} notionClient - Notion客户端实例
+   * @param {string} summaryDatabaseId - Summary数据库ID
+   * @returns {Promise<Object|null>} Summary文件对象或null
+   */
+  async findSummaryFile(notionClient, summaryDatabaseId) {
+    try {
+      const response = await notionClient.client.databases.query({
+        database_id: summaryDatabaseId,
+        filter: {
+          property: '名称',
+          title: {
+            equals: 'Summary'
+          }
+        }
+      });
+      
+      if (response.results.length > 0) {
+        return response.results[0];
+      }
+      
+      return null;
+      
+    } catch (error) {
+      console.error('❌ 查找Summary文件失败:', error.message);
+      return null;
+    }
+  }
+
+
+
+  /**
+   * 创建名为"Summary"的文件
+   * @param {Object} notionClient - Notion客户端实例
+   * @param {string} summaryDatabaseId - Summary数据库ID
+   * @returns {Promise<string|null>} 新创建的Summary文件ID或null
+   */
+  async createSummaryFile(notionClient, summaryDatabaseId) {
+    try {
+      const newPage = await notionClient.client.pages.create({
+        parent: {
+          database_id: summaryDatabaseId
+        },
+        properties: {
+          '名称': {
+            title: [
+              {
+                type: 'text',
+                text: {
+                  content: 'Summary'
+                }
+              }
+            ]
+          }
+        },
+        children: [
+          {
+            object: 'block',
+            type: 'heading_1',
+            heading_1: {
+              rich_text: [
+                {
+                  type: 'text',
+                  text: {
+                    content: '📋 卡片笔记汇总'
+                  }
+                }
+              ]
+            }
+          },
+          {
+            object: 'block',
+            type: 'paragraph',
+            paragraph: {
+              rich_text: [
+                {
+                  type: 'text',
+                  text: {
+                    content: '这是所有卡片笔记的汇总页面。'
+                  }
+                }
+              ]
+            }
+          },
+          {
+            object: 'block',
+            type: 'paragraph',
+            paragraph: {
+              rich_text: [
+                {
+                  type: 'text',
+                  text: {
+                    content: '📅 创建时间: ' + new Date().toLocaleDateString('zh-CN')
+                  }
+                }
+              ]
+            }
+          },
+          {
+            object: 'block',
+            type: 'divider',
+            divider: {}
+          },
+          {
+            object: 'block',
+            type: 'paragraph',
+            paragraph: {
+              rich_text: [
+                {
+                  type: 'text',
+                  text: {
+                    content: '💡 提示: 所有卡片笔记的Summary字段都会链接到这个页面。'
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      });
+      
+      return newPage.id;
+      
+    } catch (error) {
+      console.error('❌ 创建Summary文件失败:', error.message);
+      return null;
+    }
   }
 }

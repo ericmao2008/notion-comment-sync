@@ -59,14 +59,15 @@ export class NotionClient {
     try {
       log('debug', `Fetching blocks for page: ${pageId}`);
       
-      // 获取页面所有块
-      const blocks = await this.client.blocks.children.list({ block_id: pageId });
-      log('info', `Retrieved ${blocks.results.length} blocks for page: ${pageId}`);
+      // 递归获取所有块（包括嵌套块）
+      const allBlocks = await this.getAllBlocksRecursively(pageId);
+      
+      log('info', `Retrieved ${allBlocks.length} total blocks (including nested) for page: ${pageId}`);
       
       const blocksWithComments = [];
       
       // 遍历每个块，获取其评论
-      for (const block of blocks.results) {
+      for (const block of allBlocks) {
         try {
           const comments = await this.client.comments.list({ block_id: block.id });
           
@@ -88,6 +89,54 @@ export class NotionClient {
     } catch (error) {
       log('error', `Failed to fetch page blocks: ${pageId}`, error);
       throw error;
+    }
+  }
+
+  /**
+   * 递归获取所有块（包括嵌套块）
+   * @param {string} blockId - 块ID或页面ID
+   * @returns {Promise<Array>} 所有块的列表
+   */
+  async getAllBlocksRecursively(blockId) {
+    try {
+      let allBlocks = [];
+      let startCursor = undefined;
+      let hasMore = true;
+      
+      // 获取直接子块
+      while (hasMore) {
+        const response = await this.client.blocks.children.list({
+          block_id: blockId,
+          start_cursor: startCursor,
+          page_size: 100
+        });
+        
+        allBlocks = allBlocks.concat(response.results);
+        hasMore = response.has_more;
+        startCursor = response.next_cursor;
+      }
+      
+      // 递归获取嵌套块的子块
+      const nestedBlocks = [];
+      for (const block of allBlocks) {
+        if (block.has_children) {
+          try {
+            const childBlocks = await this.getAllBlocksRecursively(block.id);
+            nestedBlocks.push(...childBlocks);
+          } catch (error) {
+            log('warn', `Failed to fetch nested blocks for ${block.id}:`, error.message);
+          }
+        }
+      }
+      
+      // 合并所有块
+      const result = [...allBlocks, ...nestedBlocks];
+      log('debug', `Retrieved ${allBlocks.length} direct blocks and ${nestedBlocks.length} nested blocks from ${blockId}`);
+      
+      return result;
+    } catch (error) {
+      log('error', `Failed to get blocks recursively for ${blockId}:`, error);
+      return [];
     }
   }
 
@@ -197,5 +246,54 @@ export class NotionClient {
       return `${this.referenceDatabaseUrl}?p=${pageId.replace(/-/g, '')}`;
     }
     return `https://notion.so/${pageId.replace(/-/g, '')}`;
+  }
+
+  /**
+   * 创建行动库任务
+   * @param {Object} taskData - 任务数据
+   * @returns {Promise<Object>} 创建结果
+   */
+  async createActionTask(taskData) {
+    try {
+      const { databaseId, title, content, properties } = taskData;
+      
+      // 构建页面创建请求
+      const pageData = {
+        parent: {
+          database_id: databaseId
+        },
+        properties: {
+          'Task': {
+            title: [
+              {
+                text: {
+                  content: title
+                }
+              }
+            ]
+          },
+          ...properties
+        },
+        children: content
+      };
+
+      const response = await this.client.pages.create(pageData);
+      
+      log('info', 'Action task created successfully', { 
+        pageId: response.id, 
+        title: title 
+      });
+      
+      return {
+        success: true,
+        pageId: response.id
+      };
+    } catch (error) {
+      log('error', 'Failed to create action task', error);
+      return {
+        success: false,
+        error: error.message
+      };
+    }
   }
 }

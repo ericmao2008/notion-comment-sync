@@ -71,7 +71,8 @@ export class DatabaseWriter {
         success: true,
         pageId: response.id,
         title: discussion.properties['卡片笔记'].title[0].text.content,
-        discussionId: discussion.properties.DiscussionID.rich_text[0].text.content
+        discussionId: discussion.properties.DiscussionID.rich_text[0].text.content,
+        sourceNoteId: discussion.sourceNoteId
       };
     } catch (error) {
       log('error', 'Failed to write discussion to database', error);
@@ -79,7 +80,8 @@ export class DatabaseWriter {
         success: false,
         error: error.message,
         title: discussion.properties['卡片笔记'].title[0].text.content,
-        discussionId: discussion.properties.DiscussionID.rich_text[0].text.content
+        discussionId: discussion.properties.DiscussionID.rich_text[0].text.content,
+        sourceNoteId: discussion.sourceNoteId
       };
     }
   }
@@ -124,7 +126,8 @@ export class DatabaseWriter {
             success: false,
             error: error.message,
             title: discussion.properties['卡片笔记'].title[0].text.content,
-            discussionId: discussion.properties.DiscussionID.rich_text[0].text.content
+            discussionId: discussion.properties.DiscussionID.rich_text[0].text.content,
+            sourceNoteId: discussion.sourceNoteId
           });
           errorCount++;
         }
