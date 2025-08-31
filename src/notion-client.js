@@ -274,7 +274,7 @@ export class NotionClient {
       if (response.results && response.results.length > 0) {
         return response.results.map(note => ({
           id: note.id,
-          title: note.properties.Name?.title?.[0]?.text?.content || '未知标题',
+          title: note.properties['名称']?.title?.[0]?.text?.content || '未知标题',
           url: `https://www.notion.so/${note.id.replace(/-/g, '')}`,
           createdTime: note.properties['创建时间']?.created_time || '未知时间',
           automationStatus: note.properties['自动化']?.select?.name || '未知状态'

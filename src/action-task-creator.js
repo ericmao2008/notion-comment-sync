@@ -185,6 +185,11 @@ export class ActionTaskCreator {
                 id: '1c3e666e-cf2c-8045-b02a-dff15b11f944' // Summary文件ID
               }
             ]
+          },
+          'Reference': {
+            relation: unexecutedNotes.map(note => ({
+              id: note.id
+            }))
           }
         }
       });
