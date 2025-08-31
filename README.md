@@ -10,17 +10,24 @@
 - **自动化同步**: 一键同步所有待处理笔记
 - **智能去重**: 基于 DiscussionID 避免重复
 - **状态管理**: 自动更新笔记处理状态
+- **卡片处理工作流**: 自动识别待处理卡片并创建行动任务
+- **邮件通知系统**: QQ邮箱集成，支持任务提醒和警告
+- **GitHub Actions**: 每日自动同步，支持手动触发
 
 ## 🏗️ 系统架构
 
 ```
 src/
-├── main.js              # 主程序入口
-├── notion-client.js     # Notion API 客户端
-├── comment-fetcher.js   # 评论抓取和分组
-├── content-processor.js # 内容处理和格式生成
-├── database-writer.js   # 数据库写入操作
-└── utils.js            # 工具函数
+├── main.js                 # 主程序入口
+├── notion-client.js        # Notion API 客户端
+├── comment-fetcher.js      # 评论抓取和分组
+├── content-processor.js    # 内容处理和格式生成
+├── database-writer.js      # 数据库写入操作
+├── workflow-manager.js     # 工作流管理器
+├── card-status-checker.js  # 卡片状态检查器
+├── action-task-creator.js  # 行动库任务创建器
+├── email-notifier.js       # 邮件通知服务
+└── utils.js               # 工具函数
 ```
 
 ## 📋 环境要求
@@ -54,12 +61,18 @@ cp env.example .env
 # Notion API 配置
 NOTION_TOKEN=your_notion_integration_token_here
 
-# Reference 数据库配置
+# 数据库配置
 REFERENCE_DATABASE_ID=your_reference_database_id_here
-REFERENCE_DATABASE_URL=https://notion.so/your_reference_database_url_here
-
-# 目标数据库配置
 TARGET_DATABASE_ID=your_target_database_id_here
+ACTION_DATABASE_ID=your_action_database_id_here
+
+# QQ邮箱配置
+SMTP_HOST=smtp.qq.com
+SMTP_PORT=587
+SMTP_USER=your_qq_email@qq.com
+SMTP_PASS=your_qq_email_authorization_code
+EMAIL_TO=your_notification_email@example.com
+EMAIL_FROM=your_qq_email@qq.com
 
 # 可选配置
 LOG_LEVEL=info
@@ -115,16 +128,38 @@ A：[答案内容]
 
 ## 🔄 GitHub Actions 自动化
 
-项目包含 GitHub Actions 工作流，可以设置定时同步：
+项目包含 GitHub Actions 工作流，**每日凌晨3点（Brisbane时间）**自动运行：
 
 ```yaml
-# .github/workflows/sync.yml
-name: Auto Sync
+# .github/workflows/daily-sync.yml
+name: Daily Notion Comment Sync
 on:
   schedule:
-    - cron: '0 */6 * * *'  # 每6小时执行一次
+    - cron: '0 17 * * *'  # 每日下午5点UTC (Brisbane凌晨3点)
   workflow_dispatch:        # 手动触发
 ```
+
+### 🚀 自动同步功能
+- **定时触发**: 每日凌晨3点自动运行
+- **智能工作流**: 自动识别待处理卡片
+- **任务管理**: 在行动库中创建处理任务
+- **邮件通知**: 自动发送提醒和警告邮件
+- **状态检查**: 避免重复创建未完成任务
+
+### 📧 邮件通知系统
+- **任务提醒**: 新任务创建时发送通知
+- **警告邮件**: 有未完成任务时发送警告
+- **QQ邮箱集成**: 使用SMTP服务发送邮件
+- **智能内容**: 包含任务链接和卡片详情
+
+### 📋 工作流逻辑
+1. **检查待处理卡片**: 识别需要人工处理的卡片
+2. **检查未完成任务**: 避免重复创建任务
+3. **创建行动任务**: 在行动库中生成详细任务
+4. **发送邮件通知**: 提醒用户处理任务
+5. **状态管理**: 自动更新处理状态
+
+详细设置说明请查看 [GITHUB_SETUP.md](./GITHUB_SETUP.md)
 
 ## 📈 性能特点
 

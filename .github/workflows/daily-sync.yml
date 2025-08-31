@@ -1,0 +1,53 @@
+name: Daily Notion Comment Sync
+
+on:
+  schedule:
+    # 每日凌晨3点 Brisbane时间 (UTC+10)
+    # 转换为UTC时间: 3:00 AM Brisbane = 5:00 PM UTC (前一天)
+    - cron: '0 17 * * *'
+  workflow_dispatch: # 允许手动触发
+
+jobs:
+  sync-notion-comments:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+        
+    - name: Install dependencies
+      run: npm ci
+      
+    - name: Create .env file
+      run: |
+        cat > .env << EOF
+        NOTION_API_TOKEN=${{ secrets.NOTION_API_TOKEN }}
+        REFERENCE_DATABASE_ID=${{ secrets.REFERENCE_DATABASE_ID }}
+        TARGET_DATABASE_ID=${{ secrets.TARGET_DATABASE_ID }}
+        ACTION_DATABASE_ID=${{ secrets.ACTION_DATABASE_ID }}
+        SMTP_HOST=${{ secrets.SMTP_HOST }}
+        SMTP_PORT=${{ secrets.SMTP_PORT }}
+        SMTP_USER=${{ secrets.SMTP_USER }}
+        SMTP_PASS=${{ secrets.SMTP_PASS }}
+        EMAIL_TO=${{ secrets.EMAIL_TO }}
+        EMAIL_FROM=${{ secrets.EMAIL_FROM }}
+        EOF
+        
+    - name: Run Notion comment sync
+      run: node src/main.js
+      
+    - name: Upload logs
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: sync-logs
+        path: |
+          *.log
+          logs/
+        retention-days: 7
