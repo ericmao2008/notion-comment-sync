@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import { log } from './utils.js';
 import { NotionClient } from './notion-client.js';
 import { CommentFetcher } from './comment-fetcher.js';

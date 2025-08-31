@@ -39,8 +39,47 @@ jobs:
         EMAIL_FROM=${{ secrets.EMAIL_FROM }}
         EOF
         
+    - name: Debug environment variables
+      run: |
+        echo "Checking .env file contents:"
+        cat .env
+        echo ""
+        echo "Checking if NOTION_TOKEN is set:"
+        if [ -n "$NOTION_TOKEN" ]; then
+          echo "NOTION_TOKEN is set (length: ${#NOTION_TOKEN})"
+        else
+          echo "NOTION_TOKEN is NOT set"
+        fi
+        echo ""
+        echo "Checking if NOTION_API_TOKEN is set:"
+        if [ -n "$NOTION_API_TOKEN" ]; then
+          echo "NOTION_API_TOKEN is set (length: ${#NOTION_API_TOKEN})"
+        else
+          echo "NOTION_API_TOKEN is NOT set"
+        fi
+        
+    - name: Verify .env file
+      run: |
+        echo "Verifying .env file exists and has content:"
+        if [ -f .env ]; then
+          echo ".env file exists"
+          echo "File size: $(wc -c < .env) bytes"
+          echo "First few lines:"
+          head -5 .env
+        else
+          echo ".env file does NOT exist"
+          exit 1
+        fi
+        
     - name: Run Notion comment sync
-      run: node src/main.js
+      run: |
+        echo "Starting Notion comment sync..."
+        echo "Current directory: $(pwd)"
+        echo "Files in current directory:"
+        ls -la
+        echo ""
+        echo "Loading .env file and running sync..."
+        node src/main.js
       
     - name: Upload logs
       uses: actions/upload-artifact@v4
