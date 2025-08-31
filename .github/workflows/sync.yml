@@ -57,12 +57,12 @@ jobs:
           logs/
         retention-days: 7
         
-    # 可选：Slack 失败通知（需要配置 SLACK_WEBHOOK_URL secret）
-    - name: Notify on failure
-      if: failure()
-      uses: 8398a7/action-slack@v3
-      with:
-        status: ${{ job.status }}
-        channel: '#notifications'
-      env:
-        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+    # 失败通知（可选，需要配置 SLACK_WEBHOOK_URL secret）
+    # - name: Notify on failure
+    #   if: failure()
+    #   uses: 8398a7/action-slack@v3
+    #   with:
+    #     status: ${{ job.status }}
+    #     channel: '#notifications'
+    #   env:
+    #     SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}

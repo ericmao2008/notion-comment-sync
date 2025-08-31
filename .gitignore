@@ -25,8 +25,7 @@ pids
 coverage/
 .nyc_output
 
-# 依赖锁定文件
-package-lock.json
+# 依赖锁定文件（保留 package-lock.json 用于部署）
 yarn.lock
 
 # 编辑器配置
