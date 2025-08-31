@@ -27,7 +27,7 @@ jobs:
     - name: Create .env file
       run: |
         cat > .env << EOF
-        NOTION_TOKEN=${{ secrets.NOTION_API_TOKEN }}
+        NOTION_TOKEN=${{ secrets.NOTION_TOKEN }}
         REFERENCE_DATABASE_ID=${{ secrets.REFERENCE_DATABASE_ID }}
         TARGET_DATABASE_ID=${{ secrets.TARGET_DATABASE_ID }}
         ACTION_DATABASE_ID=${{ secrets.ACTION_DATABASE_ID }}
