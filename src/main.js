@@ -105,11 +105,22 @@ export class NotionCommentSync {
       log('info', '🔄 Step 7: Updating automation status in reference database...');
       await this.updateProcessedNotesStatus(pendingNotes, writeResults.results);
       
-      // 步骤8: 执行卡片处理工作流
-      log('info', '📋 Step 8: Executing card processing workflow...');
-      const workflowResult = await this.workflowManager.executeCardProcessingWorkflow();
+      // 步骤8: 执行Reference处理工作流
+      log('info', '🔄 Step 8: Executing reference processing workflow...');
+      const referenceWorkflowResult = await this.workflowManager.executeReferenceProcessingWorkflow();
+      log('info', '📋 Reference processing workflow result:', referenceWorkflowResult);
       
-      // 步骤9: 获取更新后的数据库统计信息
+      // 步骤9: 执行卡片处理工作流（仅当Reference任务完成时）
+      let cardWorkflowResult = null;
+      if (referenceWorkflowResult.success && !referenceWorkflowResult.unfinishedTask) {
+        log('info', '🔄 Step 9: Executing card processing workflow...');
+        cardWorkflowResult = await this.workflowManager.executeCardProcessingWorkflow();
+        log('info', '📋 Card processing workflow result:', cardWorkflowResult);
+      } else {
+        log('info', '⏸️ Skipping card processing workflow - Reference task not completed');
+      }
+      
+      // 步骤10: 获取更新后的数据库统计信息
       const afterStats = await this.notionClient.getDatabaseStats();
       
       const duration = Date.now() - startTime;
@@ -122,7 +133,8 @@ export class NotionCommentSync {
         duration,
         beforeStats,
         afterStats,
-        workflowResult
+        referenceWorkflowResult,
+        cardWorkflowResult
       });
       
       return {
@@ -134,7 +146,8 @@ export class NotionCommentSync {
         beforeStats,
         afterStats,
         writeResults: writeResults.results,
-        workflowResult
+        referenceWorkflowResult,
+        cardWorkflowResult
       };
       
     } catch (error) {

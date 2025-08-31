@@ -249,6 +249,46 @@ export class NotionClient {
   }
 
   /**
+   * 查找Reference数据库中"自动化"字段为"未执行"的笔记
+   * @returns {Promise<Array>} 未执行的笔记列表
+   */
+  async findUnexecutedReferenceNotes() {
+    try {
+      const response = await this.client.databases.query({
+        database_id: this.referenceDatabaseId,
+        filter: {
+          property: '自动化',
+          select: {
+            equals: '未执行'
+          }
+        },
+        sorts: [
+          {
+            property: '创建时间',
+            direction: 'descending'
+          }
+        ],
+        page_size: 100
+      });
+
+      if (response.results && response.results.length > 0) {
+        return response.results.map(note => ({
+          id: note.id,
+          title: note.properties.Name?.title?.[0]?.text?.content || '未知标题',
+          url: `https://www.notion.so/${note.id.replace(/-/g, '')}`,
+          createdTime: note.properties['创建时间']?.created_time || '未知时间',
+          automationStatus: note.properties['自动化']?.select?.name || '未知状态'
+        }));
+      }
+      
+      return [];
+    } catch (error) {
+      log('error', 'Failed to find unexecuted reference notes', error);
+      return [];
+    }
+  }
+
+  /**
    * 创建行动库任务
    * @param {Object} taskData - 任务数据
    * @returns {Promise<Object>} 创建结果

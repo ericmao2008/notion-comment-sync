@@ -15,6 +15,115 @@ export class WorkflowManager {
   }
 
   /**
+   * 执行Reference处理工作流
+   * @returns {Promise<Object>} 工作流执行结果
+   */
+  async executeReferenceProcessingWorkflow() {
+    const startTime = Date.now();
+    log('info', '🚀 Starting reference processing workflow...');
+    
+    try {
+      // 步骤1: 检查Reference数据库中"自动化"字段为"未执行"的笔记
+      log('info', '📋 Step 1: Checking for unexecuted notes in Reference database...');
+      const unexecutedNotes = await this.notionClient.findUnexecutedReferenceNotes();
+      
+      if (!unexecutedNotes || unexecutedNotes.length === 0) {
+        log('info', '✅ No unexecuted notes found in Reference database. Workflow completed.');
+        return {
+          success: true,
+          unexecutedNotes: 0,
+          actionTaskCreated: false,
+          emailSent: false,
+          duration: Date.now() - startTime,
+          message: 'No unexecuted notes found in Reference database.'
+        };
+      }
+      
+      log('info', `📝 Found ${unexecutedNotes.length} unexecuted notes in Reference database`);
+      
+      // 步骤1.5: 检查是否有未完成的Reference处理任务
+      log('info', '🔍 Step 1.5: Checking for unfinished reference processing tasks...');
+      const unfinishedTask = await this.actionTaskCreator.findUnfinishedReferenceProcessingTask();
+      
+      if (unfinishedTask) {
+        log('info', `⚠️ Found unfinished reference processing task: ${unfinishedTask.title} (${unfinishedTask.status})`);
+        
+        // 发送警告邮件而不是创建新任务
+        log('info', '📧 Step 2: Sending warning email for unfinished reference task...');
+        const emailResult = await this.emailNotifier.sendUnfinishedReferenceTaskWarning(
+          unexecutedNotes, 
+          unfinishedTask
+        );
+        
+        const result = {
+          success: true,
+          unexecutedNotes: unexecutedNotes.length,
+          actionTaskCreated: false,
+          emailSent: emailResult,
+          duration: Date.now() - startTime,
+          unfinishedTask: unfinishedTask,
+          message: `Reference workflow completed with warning. ${unexecutedNotes.length} notes need processing, but unfinished task exists: ${unfinishedTask.title}`
+        };
+        
+        log('info', '⚠️ Reference workflow completed with warning - unfinished task exists', result);
+        return result;
+      }
+      
+      // 步骤2: 创建Reference处理任务（仅在没有未完成任务时）
+      log('info', '📝 Step 2: Creating reference processing task in action database...');
+      const taskResult = await this.actionTaskCreator.createReferenceProcessingTask(unexecutedNotes);
+      
+      if (!taskResult.success) {
+        log('error', 'Failed to create reference processing task', taskResult.error);
+        return {
+          success: false,
+          unexecutedNotes: unexecutedNotes.length,
+          actionTaskCreated: false,
+          emailSent: false,
+          duration: Date.now() - startTime,
+          error: taskResult.error
+        };
+      }
+      
+      // 步骤3: 发送邮件通知
+      log('info', '📧 Step 3: Sending email notification...');
+      const emailResult = await this.emailNotifier.sendReferenceProcessingReminder(
+        unexecutedNotes, 
+        taskResult.url
+      );
+      
+      const result = {
+        success: true,
+        unexecutedNotes: unexecutedNotes.length,
+        actionTaskCreated: true,
+        emailSent: emailResult,
+        duration: Date.now() - startTime,
+        actionTask: {
+          title: taskResult.title,
+          url: taskResult.url,
+          pageId: taskResult.pageId
+        },
+        message: `Reference workflow completed successfully. ${unexecutedNotes.length} notes need processing.`
+      };
+      
+      log('info', '🎉 Reference workflow completed successfully!', result);
+      return result;
+      
+    } catch (error) {
+      const duration = Date.now() - startTime;
+      log('error', '❌ Reference workflow failed', error);
+      return {
+        success: false,
+        unexecutedNotes: 0,
+        actionTaskCreated: false,
+        emailSent: false,
+        duration: duration,
+        error: error.message
+      };
+    }
+  }
+
+  /**
    * 执行卡片处理工作流
    * @returns {Promise<Object>} 工作流执行结果
    */
