@@ -2,9 +2,9 @@ name: Daily Notion Comment Sync
 
 on:
   schedule:
-    # 每日凌晨3点 Brisbane时间 (UTC+10)
-    # 转换为UTC时间: 3:00 AM Brisbane = 5:00 PM UTC (前一天)
-    - cron: '0 17 * * *'
+    # 每日凌晨3点 Brisbane时间 (UTC+10/11)
+    # 转换为UTC时间: 3:00 AM Brisbane = 4:00 PM UTC (前一天，考虑夏令时)
+    - cron: '0 16 * * *'
   workflow_dispatch: # 允许手动触发
 
 jobs:
@@ -74,9 +74,13 @@ jobs:
     - name: Run Notion comment sync
       run: |
         echo "Starting Notion comment sync..."
+        echo "Current UTC time: $(date -u)"
         echo "Current directory: $(pwd)"
         echo "Files in current directory:"
         ls -la
+        echo ""
+        echo "Node.js version: $(node --version)"
+        echo "NPM version: $(npm --version)"
         echo ""
         echo "Loading .env file and running sync..."
         node src/main.js
