@@ -52,11 +52,11 @@ export class CardStatusChecker {
       }
 
       const pendingCards = response.results.map(page => ({
-        pageId: page.id,
+        id: page.id,
         title: this.extractTitle(page),
         discussionId: this.extractDiscussionId(page),
         sourceNoteId: this.extractSourceNoteId(page),
-        pageUrl: `https://www.notion.so/${page.id.replace(/-/g, '')}`,
+        url: `https://www.notion.so/${page.id.replace(/-/g, '')}`,
         createdTime: page.created_time,
         lastEditedTime: page.last_edited_time
       }));
