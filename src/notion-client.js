@@ -174,8 +174,8 @@ export class NotionClient {
       const response = await this.client.pages.create(pageData);
       log('info', 'Page created successfully', { pageId: response.id, title: response.properties['卡片笔记']?.title?.[0]?.text?.content });
       
-      // 创建页面后，使用模板来填充内容
-      await this.applyTemplate(response.id);
+      // 创建页面后，添加Solution区域和内联数据库
+      await this.addSolutionSection(response.id);
       
       return response;
     } catch (error) {
@@ -205,11 +205,35 @@ export class NotionClient {
    */
   async addSolutionSection(pageId) {
     try {
-      // 从主模板页面复制Solution区域内容
-      await this.copySolutionFromTemplate(pageId);
-      log('info', 'Solution section copied from template', { pageId });
+      // 添加Solution标题
+      await this.client.blocks.children.append({
+        block_id: pageId,
+        children: [
+          {
+            type: 'heading_2',
+            heading_2: {
+              rich_text: [
+                {
+                  type: 'text',
+                  text: {
+                    content: 'Solution'
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      });
+
+      // 创建内联数据库
+      const inlineDb = await this.createInlineDatabase(pageId);
+      
+      // 添加一些示例数据，链接到主数据库
+      await this.populateInlineDatabase(inlineDb.id);
+      
+      log('info', 'Solution section added successfully', { pageId });
     } catch (error) {
-      log('error', 'Failed to copy Solution section from template', error);
+      log('error', 'Failed to add Solution section', error);
       throw error;
     }
   }
@@ -275,7 +299,7 @@ export class NotionClient {
    */
   async createInlineDatabase(pageId) {
     try {
-      // 创建简化的内联数据库，只包含核心字段
+      // 创建内联数据库，包含关系字段链接到主数据库
       const databaseResponse = await this.client.databases.create({
         parent: {
           type: 'page_id',
@@ -324,6 +348,13 @@ export class NotionClient {
                 }
               ]
             }
+          },
+          '链接到主数据库': {
+            relation: {
+              database_id: this.targetDatabaseId,
+              type: 'single_property',
+              single_property: {}
+            }
           }
         }
       });
@@ -337,6 +368,68 @@ export class NotionClient {
     } catch (error) {
       log('error', 'Failed to create inline database', error);
       throw error;
+    }
+  }
+
+  /**
+   * 填充内联数据库，添加链接到主数据库的记录
+   * @param {string} databaseId - 内联数据库ID
+   */
+  async populateInlineDatabase(databaseId) {
+    try {
+      // 获取主数据库中的一些记录
+      const mainDbResponse = await this.client.databases.query({
+        database_id: this.targetDatabaseId,
+        page_size: 5
+      });
+
+      // 在内联数据库中添加这些记录
+      for (const page of mainDbResponse.results) {
+        try {
+          await this.client.pages.create({
+            parent: {
+              database_id: databaseId
+            },
+            properties: {
+              '卡片笔记': {
+                title: [
+                  {
+                    text: {
+                      content: page.properties['卡片笔记']?.title?.[0]?.text?.content || '无标题'
+                    }
+                  }
+                ]
+              },
+              '它在解决什么问题？': {
+                multi_select: [
+                  {
+                    name: '选择合适的主题'
+                  }
+                ]
+              },
+              '成熟度': {
+                select: {
+                  name: '种子'
+                }
+              },
+              '链接到主数据库': {
+                relation: [
+                  {
+                    id: page.id
+                  }
+                ]
+              }
+            }
+          });
+        } catch (error) {
+          log('warn', 'Failed to add record to inline database', { error: error.message });
+        }
+      }
+
+      log('info', 'Inline database populated successfully', { databaseId });
+    } catch (error) {
+      log('warn', 'Failed to populate inline database', error);
+      // 不抛出错误，让页面创建继续
     }
   }
 
