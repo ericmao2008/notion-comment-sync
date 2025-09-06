@@ -287,16 +287,7 @@ export class ContentProcessor {
           {
             type: 'text',
             text: {
-              content: '🔗 ',
-              annotations: {
-                bold: true
-              }
-            }
-          },
-          {
-            type: 'text',
-            text: {
-              content: '卡片笔记库',
+              content: '🔗 卡片笔记库',
               link: {
                 url: 'https://www.notion.so/18ce666ecf2c817b9808e2386cd473a0'
               }
