@@ -45,6 +45,7 @@ jobs:
         REFERENCE_DATABASE_ID: ${{ secrets.REFERENCE_DATABASE_ID }}
         TARGET_DATABASE_ID: ${{ secrets.TARGET_DATABASE_ID }}
         ACTION_DATABASE_ID: ${{ secrets.ACTION_DATABASE_ID }}
+        MASTER_TEMPLATE_ID: ${{ secrets.MASTER_TEMPLATE_ID }}
         SMTP_HOST: ${{ secrets.MAIL_HOST }}
         SMTP_PORT: ${{ secrets.MAIL_PORT }}
         SMTP_USER: ${{ secrets.SMTP_USER }}

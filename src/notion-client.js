@@ -205,133 +205,55 @@ export class NotionClient {
    */
   async addSolutionSection(pageId) {
     try {
-      // 添加Solution标题
-      await this.client.blocks.children.append({
-        block_id: pageId,
-        children: [
-          {
-            object: 'block',
-            type: 'heading_2',
-            heading_2: {
-              rich_text: [
-                {
-                  type: 'text',
-                  text: {
-                    content: 'Solution'
-                  }
-                }
-              ]
-            }
-          }
-        ]
-      });
-
-      // 创建内联数据库视图（链接到现有的卡片笔记库）
-      const inlineDatabase = await this.client.databases.create({
-        parent: {
-          page_id: pageId
-        },
-        title: [
-          {
-            type: 'text',
-            text: {
-              content: '相关解决方案'
-            }
-          }
-        ],
-        // 复制卡片笔记库的结构
-        properties: await this.getCardDatabaseProperties()
-      });
-
-      // 设置过滤条件
-      await this.setupDatabaseFilter(inlineDatabase.id);
-
-      log('info', 'Solution section created with inline database', { pageId, databaseId: inlineDatabase.id });
+      // 从主模板页面复制Solution区域内容
+      await this.copySolutionFromTemplate(pageId);
+      log('info', 'Solution section copied from template', { pageId });
     } catch (error) {
-      log('error', 'Failed to create Solution section', error);
+      log('error', 'Failed to copy Solution section from template', error);
       throw error;
     }
   }
 
   /**
-   * 获取卡片笔记库的属性结构
-   * @returns {Promise<Object>} 属性结构
+   * 从主模板页面复制Solution区域
+   * @param {string} pageId - 页面ID
    */
-  async getCardDatabaseProperties() {
+  async copySolutionFromTemplate(pageId) {
     try {
-      const database = await this.client.databases.retrieve({
-        database_id: this.targetDatabaseId
-      });
-      
-      // 返回简化的属性结构
-      const properties = {};
-      Object.entries(database.properties).forEach(([key, prop]) => {
-        if (prop.name === '卡片笔记' || prop.name === '它在解决什么问题？' || prop.name === '创建时间') {
-          properties[key] = {
-            type: prop.type,
-            ...prop
-          };
-        }
-      });
-      
-      return properties;
-    } catch (error) {
-      log('error', 'Failed to get card database properties', error);
-      return {
-        '卡片笔记': { title: {} },
-        '它在解决什么问题？': { rich_text: {} },
-        '创建时间': { created_time: {} }
-      };
-    }
-  }
-
-  /**
-   * 设置数据库过滤条件
-   * @param {string} databaseId - 数据库ID
-   */
-  async setupDatabaseFilter(databaseId) {
-    try {
-      // 获取数据库信息以获取属性ID
-      const database = await this.client.databases.retrieve({
-        database_id: databaseId
-      });
-
-      // 查找"它在解决什么问题？"属性的ID
-      const problemProperty = Object.entries(database.properties).find(
-        ([key, prop]) => prop.name === '它在解决什么问题？'
-      );
-
-      if (problemProperty) {
-        const propertyId = problemProperty[0];
-        
-        // 更新数据库，设置默认过滤条件
-        await this.client.databases.update({
-          database_id: databaseId,
-          // 设置默认视图和过滤条件
-          views: [
-            {
-              name: '相关解决方案',
-              type: 'table',
-              table: {
-                filter: {
-                  property: propertyId,
-                  rich_text: {
-                    contains: '选择合适的主题'
-                  }
-                }
-              }
-            }
-          ]
-        });
-
-        log('info', 'Database filter configured', { databaseId, propertyId });
-      } else {
-        log('warn', 'Problem property not found, skipping filter setup', { databaseId });
+      const masterTemplateId = process.env.MASTER_TEMPLATE_ID;
+      if (!masterTemplateId) {
+        throw new Error('MASTER_TEMPLATE_ID environment variable is not set');
       }
+
+      // 获取主模板页面的所有内容
+      const templateResponse = await this.client.blocks.children.list({
+        block_id: masterTemplateId
+      });
+      
+      const templateBlocks = templateResponse.results;
+      
+      if (templateBlocks.length === 0) {
+        log('warn', 'Template page is empty', { masterTemplateId });
+        return;
+      }
+
+      // 将模板内容复制到新页面
+      await this.client.blocks.children.append({
+        block_id: pageId,
+        children: templateBlocks
+      });
+
+      log('info', 'Template content copied successfully', { 
+        pageId, 
+        masterTemplateId, 
+        blocksCount: templateBlocks.length 
+      });
     } catch (error) {
-      log('error', 'Failed to setup database filter', error);
+      log('error', 'Failed to copy template content', error);
+      throw error;
     }
   }
+
 
   /**
    * 获取目标数据库的现有 DiscussionID
