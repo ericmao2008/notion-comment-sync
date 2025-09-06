@@ -535,7 +535,40 @@ export class NotionClient {
       return true;
     });
 
-    return filteredBlocks;
+    // 清理块对象，移除只读属性
+    return filteredBlocks.map(block => this.cleanBlockForAppend(block));
+  }
+
+  /**
+   * 清理块对象，移除只读属性，只保留API需要的属性
+   * @param {Object} block - 原始块对象
+   * @returns {Object} 清理后的块对象
+   */
+  cleanBlockForAppend(block) {
+    // 只读属性列表
+    const readOnlyProperties = [
+      'id', 'object', 'parent', 'created_time', 'last_edited_time',
+      'created_by', 'last_edited_by', 'has_children', 'archived', 'in_trash'
+    ];
+
+    // 创建清理后的块对象
+    const cleanedBlock = {
+      type: block.type
+    };
+
+    // 只保留类型对应的内容属性
+    if (block[block.type]) {
+      cleanedBlock[block.type] = block[block.type];
+    }
+
+    // 移除所有只读属性
+    readOnlyProperties.forEach(prop => {
+      if (cleanedBlock[prop] !== undefined) {
+        delete cleanedBlock[prop];
+      }
+    });
+
+    return cleanedBlock;
   }
 
   /**
