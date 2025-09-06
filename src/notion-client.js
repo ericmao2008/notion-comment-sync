@@ -274,7 +274,7 @@ export class NotionClient {
       'paragraph', 'bulleted_list_item', 'numbered_list_item',
       'quote', 'to_do', 'toggle', 'callout',
       'divider', 'code', 'equation',
-      'child_database', 'table', 'table_row',
+      'table', 'table_row',
       'column_list', 'column'
     ];
 
@@ -310,10 +310,6 @@ export class NotionClient {
       }
 
       // 对于某些特殊类型，进行额外验证
-      if (block.type === 'child_database') {
-        return typeProperty.title !== undefined;
-      }
-
       if (block.type === 'heading_1' || block.type === 'heading_2' || block.type === 'heading_3') {
         return typeProperty.rich_text !== undefined;
       }
