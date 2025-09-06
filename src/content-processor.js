@@ -30,7 +30,9 @@ export class ContentProcessor {
         properties,
         children: content,
         // 保留源笔记信息，供后续使用
-        sourceNoteId: discussion.sourceNote?.id
+        sourceNoteId: discussion.sourceNote?.id,
+        // 标记需要创建内联数据库
+        needsInlineDatabase: true
       };
     } catch (error) {
       log('error', `Failed to process discussion: ${discussion.discussionId}`, error);
@@ -245,6 +247,22 @@ export class ContentProcessor {
       });
     }
     
+    // 添加 Solution 区域
+    children.push({
+      object: 'block',
+      type: 'heading_2',
+      heading_2: {
+        rich_text: [
+          {
+            type: 'text',
+            text: {
+              content: 'Solution'
+            }
+          }
+        ]
+      }
+    });
+    
     return children;
   }
 
@@ -410,6 +428,87 @@ export class ContentProcessor {
   }
 
 
+
+  /**
+   * 在页面中创建内联数据库
+   * @param {Object} notionClient - Notion客户端实例
+   * @param {string} pageId - 页面ID
+   * @returns {Promise<string|null>} 创建的内联数据库ID或null
+   */
+  async createInlineDatabase(notionClient, pageId) {
+    try {
+      // 卡片笔记库的数据库ID
+      const cardDatabaseId = '18ce666e-cf2c-817b-9808-e2386cd473a0';
+      
+      // 创建内联数据库
+      const response = await notionClient.client.databases.create({
+        parent: {
+          type: 'page_id',
+          page_id: pageId
+        },
+        title: [
+          {
+            type: 'text',
+            text: {
+              content: '相关解决方案'
+            }
+          }
+        ],
+        properties: {
+          // 复制卡片笔记库的字段结构
+          '卡片笔记': {
+            type: 'title',
+            title: {}
+          },
+          'DiscussionID': {
+            type: 'rich_text',
+            rich_text: {}
+          },
+          'Reference': {
+            type: 'relation',
+            relation: {
+              database_id: cardDatabaseId,
+              type: 'single_property',
+              single_property: {}
+            }
+          },
+          'Summary': {
+            type: 'relation',
+            relation: {
+              database_id: '1c3e666e-cf2c-805b-af13-e89cc235801f',
+              type: 'single_property',
+              single_property: {}
+            }
+          },
+          '它在解决什么问题？': {
+            type: 'select',
+            select: {
+              options: [
+                {
+                  name: '选择合适的主题',
+                  color: 'default'
+                }
+              ]
+            }
+          }
+        },
+        // 设置默认过滤器
+        filter: {
+          property: '它在解决什么问题？',
+          select: {
+            equals: '选择合适的主题'
+          }
+        }
+      });
+      
+      console.log(`✅ 创建内联数据库成功: ${response.id}`);
+      return response.id;
+      
+    } catch (error) {
+      console.error('❌ 创建内联数据库失败:', error.message);
+      return null;
+    }
+  }
 
   /**
    * 创建名为"Summary"的文件

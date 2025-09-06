@@ -54,9 +54,10 @@ export class DatabaseWriter {
   /**
    * 写入单个讨论到数据库
    * @param {Object} discussion - 讨论对象
+   * @param {Object} contentProcessor - 内容处理器实例
    * @returns {Promise<Object>} 写入结果
    */
-  async writeDiscussion(discussion) {
+  async writeDiscussion(discussion, contentProcessor = null) {
     try {
       const pageData = discussion;
       const response = await this.notionClient.createPage(pageData);
@@ -66,6 +67,17 @@ export class DatabaseWriter {
         title: discussion.properties['卡片笔记'].title[0].text.content,
         discussionId: discussion.properties.DiscussionID.rich_text[0].text.content
       });
+      
+      // 如果需要创建内联数据库，在页面创建后创建
+      if (discussion.needsInlineDatabase && contentProcessor) {
+        try {
+          await contentProcessor.createInlineDatabase(this.notionClient, response.id);
+          log('info', 'Inline database created successfully', { pageId: response.id });
+        } catch (error) {
+          log('error', 'Failed to create inline database', error);
+          // 不中断主流程，只记录错误
+        }
+      }
       
       return {
         success: true,
@@ -89,9 +101,10 @@ export class DatabaseWriter {
   /**
    * 批量写入多个讨论
    * @param {Array} discussions - 讨论数组
+   * @param {Object} contentProcessor - 内容处理器实例
    * @returns {Promise<Object>} 批量写入结果
    */
-  async writeMultipleDiscussions(discussions) {
+  async writeMultipleDiscussions(discussions, contentProcessor = null) {
     try {
       log('info', `Starting to write ${discussions.length} discussions to database`);
       
@@ -103,7 +116,7 @@ export class DatabaseWriter {
         const discussion = discussions[i];
         
         try {
-          const result = await this.writeDiscussion(discussion);
+          const result = await this.writeDiscussion(discussion, contentProcessor);
           results.push(result);
           
           if (result.success) {

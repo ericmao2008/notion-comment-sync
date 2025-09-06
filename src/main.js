@@ -100,7 +100,7 @@ export class NotionCommentSync {
       const processedDiscussions = await this.contentProcessor.processMultipleDiscussions(newDiscussions);
       
       log('info', '💾 Step 6: Writing discussions to database...');
-      const writeResults = await this.databaseWriter.writeMultipleDiscussions(processedDiscussions);
+      const writeResults = await this.databaseWriter.writeMultipleDiscussions(processedDiscussions, this.contentProcessor);
       
       // 步骤7: 更新 Reference 数据库中已处理笔记的状态
       log('info', '🔄 Step 7: Updating automation status in reference database...');

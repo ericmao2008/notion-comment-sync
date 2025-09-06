@@ -1,14 +1,29 @@
 name: Daily Notion Comment Sync
 
 on:
+  # 定时触发 - 每日凌晨3点（Brisbane时间，UTC 17:00）
   schedule:
-    # 每日凌晨3点 Brisbane时间 (UTC+10/11)
-    # 转换为UTC时间: 3:00 AM Brisbane = 4:00 PM UTC (前一天，考虑夏令时)
-    - cron: '0 16 * * *'
-  workflow_dispatch: # 允许手动触发
+    - cron: '0 17 * * *'
+  
+  # 手动触发 - 这是关键配置
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to run in'
+        required: false
+        default: 'production'
+        type: choice
+        options:
+        - production
+        - staging
+      force_run:
+        description: 'Force run even if no new data'
+        required: false
+        default: false
+        type: boolean
 
 jobs:
-  sync-notion-comments:
+  sync:
     runs-on: ubuntu-latest
     
     steps:
@@ -18,78 +33,31 @@ jobs:
     - name: Setup Node.js
       uses: actions/setup-node@v4
       with:
-        node-version: '20'
+        node-version: '18'
         cache: 'npm'
         
     - name: Install dependencies
       run: npm ci
       
-    - name: Create .env file
-      run: |
-        cat > .env << EOF
-        NOTION_TOKEN=${{ secrets.NOTION_TOKEN }}
-        REFERENCE_DATABASE_ID=${{ secrets.REFERENCE_DATABASE_ID }}
-        TARGET_DATABASE_ID=${{ secrets.TARGET_DATABASE_ID }}
-        ACTION_DATABASE_ID=${{ secrets.ACTION_DATABASE_ID }}
-        SMTP_HOST=${{ secrets.SMTP_HOST }}
-        SMTP_PORT=${{ secrets.SMTP_PORT }}
-        SMTP_USER=${{ secrets.SMTP_USER }}
-        SMTP_PASS=${{ secrets.SMTP_PASS }}
-        EMAIL_TO=${{ secrets.EMAIL_TO }}
-        EMAIL_FROM=${{ secrets.EMAIL_FROM }}
-        EOF
-        
-    - name: Debug environment variables
-      run: |
-        echo "Checking .env file contents:"
-        cat .env
-        echo ""
-        echo "Checking if NOTION_TOKEN is set:"
-        if [ -n "$NOTION_TOKEN" ]; then
-          echo "NOTION_TOKEN is set (length: ${#NOTION_TOKEN})"
-        else
-          echo "NOTION_TOKEN is NOT set"
-        fi
-        echo ""
-        echo "Checking if NOTION_API_TOKEN is set:"
-        if [ -n "$NOTION_API_TOKEN" ]; then
-          echo "NOTION_API_TOKEN is set (length: ${#NOTION_API_TOKEN})"
-        else
-          echo "NOTION_API_TOKEN is NOT set"
-        fi
-        
-    - name: Verify .env file
-      run: |
-        echo "Verifying .env file exists and has content:"
-        if [ -f .env ]; then
-          echo ".env file exists"
-          echo "File size: $(wc -c < .env) bytes"
-          echo "First few lines:"
-          head -5 .env
-        else
-          echo ".env file does NOT exist"
-          exit 1
-        fi
-        
-    - name: Run Notion comment sync
-      run: |
-        echo "Starting Notion comment sync..."
-        echo "Current UTC time: $(date -u)"
-        echo "Current directory: $(pwd)"
-        echo "Files in current directory:"
-        ls -la
-        echo ""
-        echo "Node.js version: $(node --version)"
-        echo "NPM version: $(npm --version)"
-        echo ""
-        echo "Loading .env file and running sync..."
-        node src/main.js
+    - name: Run Notion Comment Sync
+      env:
+        NOTION_API_TOKEN: ${{ secrets.NOTION_API_TOKEN }}
+        REFERENCE_DATABASE_ID: ${{ secrets.REFERENCE_DATABASE_ID }}
+        TARGET_DATABASE_ID: ${{ secrets.TARGET_DATABASE_ID }}
+        ACTION_DATABASE_ID: ${{ secrets.ACTION_DATABASE_ID }}
+        SMTP_HOST: ${{ secrets.SMTP_HOST }}
+        SMTP_PORT: ${{ secrets.SMTP_PORT }}
+        SMTP_USER: ${{ secrets.SMTP_USER }}
+        SMTP_PASS: ${{ secrets.SMTP_PASS }}
+        EMAIL_TO: ${{ secrets.EMAIL_TO }}
+        EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
+      run: node src/main.js
       
     - name: Upload logs
-      uses: actions/upload-artifact@v4
       if: always()
+      uses: actions/upload-artifact@v4
       with:
-        name: sync-logs
+        name: sync-logs-${{ github.run_number }}
         path: |
           *.log
           logs/
