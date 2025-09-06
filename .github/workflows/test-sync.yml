@@ -1,0 +1,59 @@
+name: Test Notion Comment Sync
+
+on:
+  # 手动触发
+  workflow_dispatch:
+    inputs:
+      test_mode:
+        description: 'Test mode (no actual data changes)'
+        required: false
+        default: true
+        type: boolean
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        
+    - name: Install dependencies
+      run: npm ci
+      
+    - name: Test basic functionality
+      run: |
+        echo "Testing basic Node.js functionality..."
+        node --version
+        npm --version
+        echo "✅ Basic test passed"
+        
+    - name: Test with minimal environment
+      env:
+        NOTION_API_TOKEN: ${{ secrets.NOTION_API_TOKEN }}
+      run: |
+        if [ -n "$NOTION_API_TOKEN" ]; then
+          echo "✅ NOTION_API_TOKEN is set"
+        else
+          echo "❌ NOTION_API_TOKEN is missing"
+        fi
+        
+    - name: List required secrets
+      run: |
+        echo "Required secrets for full functionality:"
+        echo "- NOTION_API_TOKEN: ${{ secrets.NOTION_API_TOKEN != '' && '✅ Set' || '❌ Missing' }}"
+        echo "- REFERENCE_DATABASE_ID: ${{ secrets.REFERENCE_DATABASE_ID != '' && '✅ Set' || '❌ Missing' }}"
+        echo "- TARGET_DATABASE_ID: ${{ secrets.TARGET_DATABASE_ID != '' && '✅ Set' || '❌ Missing' }}"
+        echo "- ACTION_DATABASE_ID: ${{ secrets.ACTION_DATABASE_ID != '' && '✅ Set' || '❌ Missing' }}"
+        echo "- SMTP_HOST: ${{ secrets.SMTP_HOST != '' && '✅ Set' || '❌ Missing' }}"
+        echo "- SMTP_PORT: ${{ secrets.SMTP_PORT != '' && '✅ Set' || '❌ Missing' }}"
+        echo "- SMTP_USER: ${{ secrets.SMTP_USER != '' && '✅ Set' || '❌ Missing' }}"
+        echo "- SMTP_PASS: ${{ secrets.SMTP_PASS != '' && '✅ Set' || '❌ Missing' }}"
+        echo "- EMAIL_TO: ${{ secrets.EMAIL_TO != '' && '✅ Set' || '❌ Missing' }}"
+        echo "- EMAIL_FROM: ${{ secrets.EMAIL_FROM != '' && '✅ Set' || '❌ Missing' }}"
