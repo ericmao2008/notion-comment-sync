@@ -171,20 +171,58 @@ export class NotionClient {
    */
   async createPage(pageData) {
     try {
-      // 添加模板ID到页面数据中，使用"卡片"模板
-      const pageDataWithTemplate = {
-        ...pageData,
-        template: {
-          template_id: '卡片' // 使用卡片模板
-        }
-      };
+      const response = await this.client.pages.create(pageData);
+      log('info', 'Page created successfully', { pageId: response.id, title: response.properties['卡片笔记']?.title?.[0]?.text?.content });
       
-      const response = await this.client.pages.create(pageDataWithTemplate);
-      log('info', 'Page created successfully with template', { pageId: response.id, title: response.properties['卡片笔记']?.title?.[0]?.text?.content });
+      // 创建页面后，使用模板来填充内容
+      await this.applyTemplate(response.id);
+      
       return response;
     } catch (error) {
       log('error', 'Failed to create page', error);
       throw error;
+    }
+  }
+
+  /**
+   * 应用模板到页面
+   * @param {string} pageId - 页面ID
+   */
+  async applyTemplate(pageId) {
+    try {
+      // 获取数据库的模板列表
+      const database = await this.client.databases.retrieve({
+        database_id: this.targetDatabaseId
+      });
+      
+      // 查找"卡片"模板
+      const templates = database.template_pages || [];
+      const cardTemplate = templates.find(template => 
+        template.title && template.title.some(title => 
+          title.plain_text === '卡片'
+        )
+      );
+      
+      if (cardTemplate) {
+        // 复制模板内容到新页面
+        const templateBlocks = await this.client.blocks.children.list({
+          block_id: cardTemplate.id
+        });
+        
+        // 将模板内容添加到页面
+        if (templateBlocks.results.length > 0) {
+          await this.client.blocks.children.append({
+            block_id: pageId,
+            children: templateBlocks.results
+          });
+          log('info', 'Template applied successfully', { pageId, templateId: cardTemplate.id });
+        }
+      } else {
+        log('warn', 'Card template not found, skipping template application', { pageId });
+      }
+    } catch (error) {
+      log('error', 'Failed to apply template', error);
+      // 不抛出错误，让页面创建继续
     }
   }
 
