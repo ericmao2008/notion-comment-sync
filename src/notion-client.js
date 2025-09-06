@@ -205,35 +205,11 @@ export class NotionClient {
    */
   async addSolutionSection(pageId) {
     try {
-      // 添加Solution标题
-      await this.client.blocks.children.append({
-        block_id: pageId,
-        children: [
-          {
-            type: 'heading_2',
-            heading_2: {
-              rich_text: [
-                {
-                  type: 'text',
-                  text: {
-                    content: 'Solution'
-                  }
-                }
-              ]
-            }
-          }
-        ]
-      });
-
-      // 创建内联数据库
-      const inlineDb = await this.createInlineDatabase(pageId);
-      
-      // 添加一些示例数据，链接到主数据库
-      await this.populateInlineDatabase(inlineDb.id);
-      
-      log('info', 'Solution section added successfully', { pageId });
+      // 从主模板页面复制Solution区域内容（包括带过滤器的内联数据库视图）
+      await this.copySolutionFromTemplate(pageId);
+      log('info', 'Solution section copied from template', { pageId });
     } catch (error) {
-      log('error', 'Failed to add Solution section', error);
+      log('error', 'Failed to copy Solution section from template', error);
       throw error;
     }
   }
@@ -293,145 +269,6 @@ export class NotionClient {
     }
   }
 
-  /**
-   * 创建内联数据库
-   * @param {string} pageId - 页面ID
-   */
-  async createInlineDatabase(pageId) {
-    try {
-      // 创建内联数据库，包含关系字段链接到主数据库
-      const databaseResponse = await this.client.databases.create({
-        parent: {
-          type: 'page_id',
-          page_id: pageId
-        },
-        title: [
-          {
-            type: 'text',
-            text: {
-              content: '相关解决方案'
-            }
-          }
-        ],
-        properties: {
-          '卡片笔记': {
-            title: {}
-          },
-          '它在解决什么问题？': {
-            multi_select: {
-              options: [
-                {
-                  name: '选择合适的主题',
-                  color: 'blue'
-                }
-              ]
-            }
-          },
-          '成熟度': {
-            select: {
-              options: [
-                {
-                  name: '种子',
-                  color: 'red'
-                },
-                {
-                  name: '萌芽',
-                  color: 'orange'
-                },
-                {
-                  name: '成长',
-                  color: 'yellow'
-                },
-                {
-                  name: '成熟',
-                  color: 'green'
-                }
-              ]
-            }
-          },
-          '链接到主数据库': {
-            relation: {
-              database_id: this.targetDatabaseId,
-              type: 'single_property',
-              single_property: {}
-            }
-          }
-        }
-      });
-
-      log('info', 'Inline database created successfully', { 
-        pageId, 
-        databaseId: databaseResponse.id
-      });
-
-      return databaseResponse;
-    } catch (error) {
-      log('error', 'Failed to create inline database', error);
-      throw error;
-    }
-  }
-
-  /**
-   * 填充内联数据库，添加链接到主数据库的记录
-   * @param {string} databaseId - 内联数据库ID
-   */
-  async populateInlineDatabase(databaseId) {
-    try {
-      // 获取主数据库中的一些记录
-      const mainDbResponse = await this.client.databases.query({
-        database_id: this.targetDatabaseId,
-        page_size: 5
-      });
-
-      // 在内联数据库中添加这些记录
-      for (const page of mainDbResponse.results) {
-        try {
-          await this.client.pages.create({
-            parent: {
-              database_id: databaseId
-            },
-            properties: {
-              '卡片笔记': {
-                title: [
-                  {
-                    text: {
-                      content: page.properties['卡片笔记']?.title?.[0]?.text?.content || '无标题'
-                    }
-                  }
-                ]
-              },
-              '它在解决什么问题？': {
-                multi_select: [
-                  {
-                    name: '选择合适的主题'
-                  }
-                ]
-              },
-              '成熟度': {
-                select: {
-                  name: '种子'
-                }
-              },
-              '链接到主数据库': {
-                relation: [
-                  {
-                    id: page.id
-                  }
-                ]
-              }
-            }
-          });
-        } catch (error) {
-          log('warn', 'Failed to add record to inline database', { error: error.message });
-        }
-      }
-
-      log('info', 'Inline database populated successfully', { databaseId });
-    } catch (error) {
-      log('warn', 'Failed to populate inline database', error);
-      // 不抛出错误，让页面创建继续
-    }
-  }
 
   /**
    * 设置数据库视图和过滤条件
@@ -490,9 +327,6 @@ export class NotionClient {
         children: validBlocks
       });
 
-      // 添加链接到现有卡片笔记库的说明
-      await this.addDatabaseLink(pageId);
-
       log('info', 'Template content copied successfully', { 
         pageId, 
         masterTemplateId, 
@@ -517,7 +351,8 @@ export class NotionClient {
       'quote', 'to_do', 'toggle', 'callout',
       'divider', 'code', 'equation',
       'table', 'table_row',
-      'column_list', 'column'
+      'column_list', 'column',
+      'link_to_page'  // 链接数据库视图的块类型
     ];
 
     const filteredBlocks = blocks.filter(block => {
