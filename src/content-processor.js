@@ -247,8 +247,8 @@ export class ContentProcessor {
       });
     }
     
-    // 添加 Solution 区域
-    children.push({
+    // 在页面开头添加Solution区域内容，这样会出现在模板的Solution区域上方
+    children.unshift({
       object: 'block',
       type: 'heading_2',
       heading_2: {
@@ -263,8 +263,7 @@ export class ContentProcessor {
       }
     });
     
-    // 添加数据库链接和说明
-    children.push({
+    children.unshift({
       object: 'block',
       type: 'paragraph',
       paragraph: {
@@ -279,7 +278,7 @@ export class ContentProcessor {
       }
     });
     
-    children.push({
+    children.unshift({
       object: 'block',
       type: 'paragraph',
       paragraph: {
@@ -297,7 +296,7 @@ export class ContentProcessor {
       }
     });
     
-    children.push({
+    children.unshift({
       object: 'block',
       type: 'paragraph',
       paragraph: {
@@ -312,7 +311,7 @@ export class ContentProcessor {
       }
     });
     
-    children.push({
+    children.unshift({
       object: 'block',
       type: 'divider',
       divider: {}
