@@ -430,83 +430,120 @@ export class ContentProcessor {
 
 
   /**
-   * 在页面中创建内联数据库
+   * 在页面中添加数据库视图嵌入
    * @param {Object} notionClient - Notion客户端实例
    * @param {string} pageId - 页面ID
-   * @returns {Promise<string|null>} 创建的内联数据库ID或null
+   * @returns {Promise<boolean>} 是否成功添加
    */
-  async createInlineDatabase(notionClient, pageId) {
+  async addDatabaseViewEmbed(notionClient, pageId) {
     try {
       // 卡片笔记库的数据库ID
       const cardDatabaseId = '18ce666e-cf2c-817b-9808-e2386cd473a0';
       
-      // 创建内联数据库
-      const response = await notionClient.client.databases.create({
-        parent: {
-          type: 'page_id',
-          page_id: pageId
-        },
-        title: [
+      // 在页面中添加数据库视图嵌入
+      const response = await notionClient.client.blocks.children.append({
+        block_id: pageId,
+        children: [
           {
-            type: 'text',
-            text: {
-              content: '相关解决方案'
+            type: 'child_database',
+            child_database: {
+              title: '相关解决方案'
             }
           }
-        ],
-        properties: {
-          // 复制卡片笔记库的字段结构
-          '卡片笔记': {
-            type: 'title',
-            title: {}
-          },
-          'DiscussionID': {
-            type: 'rich_text',
-            rich_text: {}
-          },
-          'Reference': {
-            type: 'relation',
-            relation: {
-              database_id: cardDatabaseId,
-              type: 'single_property',
-              single_property: {}
-            }
-          },
-          'Summary': {
-            type: 'relation',
-            relation: {
-              database_id: '1c3e666e-cf2c-805b-af13-e89cc235801f',
-              type: 'single_property',
-              single_property: {}
-            }
-          },
-          '它在解决什么问题？': {
-            type: 'select',
-            select: {
-              options: [
+        ]
+      });
+      
+      // 注意：Notion API 无法直接创建内联数据库视图
+      // 我们需要使用不同的方法
+      console.log(`✅ 添加数据库视图嵌入成功`);
+      return true;
+      
+    } catch (error) {
+      console.error('❌ 添加数据库视图嵌入失败:', error.message);
+      return false;
+    }
+  }
+
+  /**
+   * 在页面中添加数据库链接和说明
+   * @param {Object} notionClient - Notion客户端实例
+   * @param {string} pageId - 页面ID
+   * @returns {Promise<boolean>} 是否成功添加
+   */
+  async addDatabaseLink(notionClient, pageId) {
+    try {
+      // 卡片笔记库的数据库ID和URL
+      const cardDatabaseId = '18ce666e-cf2c-817b-9808-e2386cd473a0';
+      const cardDatabaseUrl = `https://www.notion.so/${cardDatabaseId.replace(/-/g, '')}`;
+      
+      // 在页面中添加数据库链接和说明
+      const response = await notionClient.client.blocks.children.append({
+        block_id: pageId,
+        children: [
+          {
+            type: 'paragraph',
+            paragraph: {
+              rich_text: [
                 {
-                  name: '选择合适的主题',
-                  color: 'default'
+                  type: 'text',
+                  text: {
+                    content: '📊 相关解决方案数据库：'
+                  }
                 }
               ]
             }
+          },
+          {
+            type: 'paragraph',
+            paragraph: {
+              rich_text: [
+                {
+                  type: 'text',
+                  text: {
+                    content: '🔗 ',
+                    annotations: {
+                      bold: true
+                    }
+                  }
+                },
+                {
+                  type: 'text',
+                  text: {
+                    content: '卡片笔记库',
+                    link: {
+                      url: cardDatabaseUrl
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          {
+            type: 'paragraph',
+            paragraph: {
+              rich_text: [
+                {
+                  type: 'text',
+                  text: {
+                    content: '💡 提示：点击上方链接查看所有相关解决方案，或使用过滤器筛选"选择合适的主题"的卡片。'
+                  }
+                }
+              ]
+            }
+          },
+          {
+            type: 'divider',
+            divider: {}
           }
-        },
-        // 设置默认过滤器
-        filter: {
-          property: '它在解决什么问题？',
-          select: {
-            equals: '选择合适的主题'
-          }
-        }
+        ]
       });
       
-      console.log(`✅ 创建内联数据库成功: ${response.id}`);
-      return response.id;
+      console.log(`✅ 添加数据库链接成功`);
+      return true;
       
     } catch (error) {
-      console.error('❌ 创建内联数据库失败:', error.message);
-      return null;
+      console.error('❌ 添加数据库链接失败:', error.message);
+      return false;
     }
   }
 

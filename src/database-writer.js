@@ -68,13 +68,13 @@ export class DatabaseWriter {
         discussionId: discussion.properties.DiscussionID.rich_text[0].text.content
       });
       
-      // 如果需要创建内联数据库，在页面创建后创建
+      // 如果需要添加数据库链接，在页面创建后添加
       if (discussion.needsInlineDatabase && contentProcessor) {
         try {
-          await contentProcessor.createInlineDatabase(this.notionClient, response.id);
-          log('info', 'Inline database created successfully', { pageId: response.id });
+          await contentProcessor.addDatabaseLink(this.notionClient, response.id);
+          log('info', 'Database link added successfully', { pageId: response.id });
         } catch (error) {
-          log('error', 'Failed to create inline database', error);
+          log('error', 'Failed to add database link', error);
           // 不中断主流程，只记录错误
         }
       }
