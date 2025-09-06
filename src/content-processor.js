@@ -263,6 +263,70 @@ export class ContentProcessor {
       }
     });
     
+    // 添加数据库链接和说明
+    children.push({
+      object: 'block',
+      type: 'paragraph',
+      paragraph: {
+        rich_text: [
+          {
+            type: 'text',
+            text: {
+              content: '📊 相关解决方案数据库：'
+            }
+          }
+        ]
+      }
+    });
+    
+    children.push({
+      object: 'block',
+      type: 'paragraph',
+      paragraph: {
+        rich_text: [
+          {
+            type: 'text',
+            text: {
+              content: '🔗 ',
+              annotations: {
+                bold: true
+              }
+            }
+          },
+          {
+            type: 'text',
+            text: {
+              content: '卡片笔记库',
+              link: {
+                url: 'https://www.notion.so/18ce666ecf2c817b9808e2386cd473a0'
+              }
+            }
+          }
+        ]
+      }
+    });
+    
+    children.push({
+      object: 'block',
+      type: 'paragraph',
+      paragraph: {
+        rich_text: [
+          {
+            type: 'text',
+            text: {
+              content: '💡 提示：点击上方链接查看所有相关解决方案，或使用过滤器筛选"选择合适的主题"的卡片。'
+            }
+          }
+        ]
+      }
+    });
+    
+    children.push({
+      object: 'block',
+      type: 'divider',
+      divider: {}
+    });
+    
     return children;
   }
 

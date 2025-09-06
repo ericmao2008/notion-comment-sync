@@ -68,16 +68,7 @@ export class DatabaseWriter {
         discussionId: discussion.properties.DiscussionID.rich_text[0].text.content
       });
       
-      // 如果需要添加数据库链接，在页面创建后添加
-      if (discussion.needsInlineDatabase && contentProcessor) {
-        try {
-          await contentProcessor.addDatabaseLink(this.notionClient, response.id);
-          log('info', 'Database link added successfully', { pageId: response.id });
-        } catch (error) {
-          log('error', 'Failed to add database link', error);
-          // 不中断主流程，只记录错误
-        }
-      }
+      // Solution区域内容已直接在页面内容中添加，无需额外处理
       
       return {
         success: true,
