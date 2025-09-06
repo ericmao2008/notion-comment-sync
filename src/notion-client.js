@@ -190,39 +190,103 @@ export class NotionClient {
    */
   async applyTemplate(pageId) {
     try {
-      // 获取数据库的模板列表
-      const database = await this.client.databases.retrieve({
-        database_id: this.targetDatabaseId
-      });
-      
-      // 查找"卡片"模板
-      const templates = database.template_pages || [];
-      const cardTemplate = templates.find(template => 
-        template.title && template.title.some(title => 
-          title.plain_text === '卡片'
-        )
-      );
-      
-      if (cardTemplate) {
-        // 复制模板内容到新页面
-        const templateBlocks = await this.client.blocks.children.list({
-          block_id: cardTemplate.id
-        });
-        
-        // 将模板内容添加到页面
-        if (templateBlocks.results.length > 0) {
-          await this.client.blocks.children.append({
-            block_id: pageId,
-            children: templateBlocks.results
-          });
-          log('info', 'Template applied successfully', { pageId, templateId: cardTemplate.id });
-        }
-      } else {
-        log('warn', 'Card template not found, skipping template application', { pageId });
-      }
+      // 直接创建Solution区域和内联数据库，而不是依赖模板
+      await this.addSolutionSection(pageId);
+      log('info', 'Solution section added successfully', { pageId });
     } catch (error) {
-      log('error', 'Failed to apply template', error);
+      log('error', 'Failed to add Solution section', error);
       // 不抛出错误，让页面创建继续
+    }
+  }
+
+  /**
+   * 添加Solution区域到页面
+   * @param {string} pageId - 页面ID
+   */
+  async addSolutionSection(pageId) {
+    try {
+      // 添加Solution标题
+      await this.client.blocks.children.append({
+        block_id: pageId,
+        children: [
+          {
+            object: 'block',
+            type: 'heading_2',
+            heading_2: {
+              rich_text: [
+                {
+                  type: 'text',
+                  text: {
+                    content: 'Solution'
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      });
+
+      // 添加数据库链接和说明
+      await this.client.blocks.children.append({
+        block_id: pageId,
+        children: [
+          {
+            object: 'block',
+            type: 'paragraph',
+            paragraph: {
+              rich_text: [
+                {
+                  type: 'text',
+                  text: {
+                    content: '📊 相关解决方案数据库：'
+                  }
+                }
+              ]
+            }
+          },
+          {
+            object: 'block',
+            type: 'paragraph',
+            paragraph: {
+              rich_text: [
+                {
+                  type: 'text',
+                  text: {
+                    content: '🔗 卡片笔记库',
+                    link: {
+                      url: `https://www.notion.so/${this.targetDatabaseId.replace(/-/g, '')}`
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          {
+            object: 'block',
+            type: 'paragraph',
+            paragraph: {
+              rich_text: [
+                {
+                  type: 'text',
+                  text: {
+                    content: '💡 提示：点击上方链接查看所有相关解决方案，或使用过滤器筛选"选择合适的主题"的卡片。'
+                  }
+                }
+              ]
+            }
+          },
+          {
+            object: 'block',
+            type: 'divider',
+            divider: {}
+          }
+        ]
+      });
+
+      log('info', 'Solution section created with database link', { pageId });
+    } catch (error) {
+      log('error', 'Failed to create Solution section', error);
+      throw error;
     }
   }
 
