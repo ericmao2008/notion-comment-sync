@@ -237,20 +237,95 @@ export class NotionClient {
         return;
       }
 
-      // 将模板内容复制到新页面
+      // 过滤和清理块，只保留可以复制的类型
+      const validBlocks = this.filterValidBlocks(templateBlocks);
+      
+      if (validBlocks.length === 0) {
+        log('warn', 'No valid blocks found in template', { masterTemplateId });
+        return;
+      }
+
+      // 将过滤后的模板内容复制到新页面
       await this.client.blocks.children.append({
         block_id: pageId,
-        children: templateBlocks
+        children: validBlocks
       });
 
       log('info', 'Template content copied successfully', { 
         pageId, 
         masterTemplateId, 
-        blocksCount: templateBlocks.length 
+        originalBlocks: templateBlocks.length,
+        validBlocks: validBlocks.length
       });
     } catch (error) {
       log('error', 'Failed to copy template content', error);
       throw error;
+    }
+  }
+
+  /**
+   * 过滤有效的块类型，移除不能通过API复制的块
+   * @param {Array} blocks - 原始块数组
+   * @returns {Array} 过滤后的块数组
+   */
+  filterValidBlocks(blocks) {
+    const validBlockTypes = [
+      'heading_1', 'heading_2', 'heading_3',
+      'paragraph', 'bulleted_list_item', 'numbered_list_item',
+      'quote', 'to_do', 'toggle', 'callout',
+      'divider', 'code', 'equation',
+      'child_database', 'table', 'table_row',
+      'column_list', 'column'
+    ];
+
+    const filteredBlocks = blocks.filter(block => {
+      if (!validBlockTypes.includes(block.type)) {
+        log('warn', `Skipping unsupported block type: ${block.type}`, { blockId: block.id });
+        return false;
+      }
+
+      // 验证块结构是否完整
+      if (!this.isValidBlockStructure(block)) {
+        log('warn', `Invalid block structure for type: ${block.type}`, { blockId: block.id });
+        return false;
+      }
+
+      return true;
+    });
+
+    return filteredBlocks;
+  }
+
+  /**
+   * 验证块结构是否完整
+   * @param {Object} block - 块对象
+   * @returns {boolean} 是否有效
+   */
+  isValidBlockStructure(block) {
+    try {
+      // 检查块是否有对应的类型属性
+      const typeProperty = block[block.type];
+      if (!typeProperty) {
+        return false;
+      }
+
+      // 对于某些特殊类型，进行额外验证
+      if (block.type === 'child_database') {
+        return typeProperty.title !== undefined;
+      }
+
+      if (block.type === 'heading_1' || block.type === 'heading_2' || block.type === 'heading_3') {
+        return typeProperty.rich_text !== undefined;
+      }
+
+      if (block.type === 'paragraph') {
+        return typeProperty.rich_text !== undefined;
+      }
+
+      return true;
+    } catch (error) {
+      log('warn', 'Error validating block structure', { error: error.message, blockType: block.type });
+      return false;
     }
   }
 
