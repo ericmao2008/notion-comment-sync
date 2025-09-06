@@ -247,75 +247,8 @@ export class ContentProcessor {
       });
     }
     
-    // 在页面开头添加Solution区域内容，这样会出现在模板的Solution区域上方
-    children.unshift({
-      object: 'block',
-      type: 'heading_2',
-      heading_2: {
-        rich_text: [
-          {
-            type: 'text',
-            text: {
-              content: 'Solution'
-            }
-          }
-        ]
-      }
-    });
-    
-    children.unshift({
-      object: 'block',
-      type: 'paragraph',
-      paragraph: {
-        rich_text: [
-          {
-            type: 'text',
-            text: {
-              content: '📊 相关解决方案数据库：'
-            }
-          }
-        ]
-      }
-    });
-    
-    children.unshift({
-      object: 'block',
-      type: 'paragraph',
-      paragraph: {
-        rich_text: [
-          {
-            type: 'text',
-            text: {
-              content: '🔗 卡片笔记库',
-              link: {
-                url: 'https://www.notion.so/18ce666ecf2c817b9808e2386cd473a0'
-              }
-            }
-          }
-        ]
-      }
-    });
-    
-    children.unshift({
-      object: 'block',
-      type: 'paragraph',
-      paragraph: {
-        rich_text: [
-          {
-            type: 'text',
-            text: {
-              content: '💡 提示：点击上方链接查看所有相关解决方案，或使用过滤器筛选"选择合适的主题"的卡片。'
-            }
-          }
-        ]
-      }
-    });
-    
-    children.unshift({
-      object: 'block',
-      type: 'divider',
-      divider: {}
-    });
+    // Solution区域由模板提供，这里不添加任何内容
+    // 模板会自动显示卡片笔记库的内联视图
     
     return children;
   }

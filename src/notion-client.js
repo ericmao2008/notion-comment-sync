@@ -171,8 +171,16 @@ export class NotionClient {
    */
   async createPage(pageData) {
     try {
-      const response = await this.client.pages.create(pageData);
-      log('info', 'Page created successfully', { pageId: response.id, title: response.properties['卡片笔记']?.title?.[0]?.text?.content });
+      // 添加模板ID到页面数据中，使用"卡片"模板
+      const pageDataWithTemplate = {
+        ...pageData,
+        template: {
+          template_id: '卡片' // 使用卡片模板
+        }
+      };
+      
+      const response = await this.client.pages.create(pageDataWithTemplate);
+      log('info', 'Page created successfully with template', { pageId: response.id, title: response.properties['卡片笔记']?.title?.[0]?.text?.content });
       return response;
     } catch (error) {
       log('error', 'Failed to create page', error);
