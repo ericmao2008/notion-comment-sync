@@ -215,6 +215,61 @@ export class NotionClient {
   }
 
   /**
+   * 添加数据库链接说明
+   * @param {string} pageId - 页面ID
+   */
+  async addDatabaseLink(pageId) {
+    try {
+      // 添加链接到现有卡片笔记库的说明
+      await this.client.blocks.children.append({
+        block_id: pageId,
+        children: [
+          {
+            type: 'paragraph',
+            paragraph: {
+              rich_text: [
+                {
+                  type: 'text',
+                  text: {
+                    content: '🔗 相关解决方案：请在此处添加内联数据库视图，链接到卡片笔记库，并设置过滤条件 "它在解决什么问题？" = "选择合适的主题"'
+                  }
+                }
+              ]
+            }
+          },
+          {
+            type: 'paragraph',
+            paragraph: {
+              rich_text: [
+                {
+                  type: 'text',
+                  text: {
+                    content: '数据库链接：'
+                  }
+                },
+                {
+                  type: 'text',
+                  text: {
+                    content: 'https://www.notion.so/18ce666ecf2c817b9808e2386cd473a0',
+                    link: {
+                      url: 'https://www.notion.so/18ce666ecf2c817b9808e2386cd473a0'
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      });
+
+      log('info', 'Database link added successfully', { pageId });
+    } catch (error) {
+      log('error', 'Failed to add database link', error);
+      throw error;
+    }
+  }
+
+  /**
    * 创建内联数据库
    * @param {string} pageId - 页面ID
    */
@@ -342,8 +397,8 @@ export class NotionClient {
         children: validBlocks
       });
 
-      // 手动创建内联数据库来替代模板中的child_database
-      await this.createInlineDatabase(pageId);
+      // 添加链接到现有卡片笔记库的说明
+      await this.addDatabaseLink(pageId);
 
       log('info', 'Template content copied successfully', { 
         pageId, 
